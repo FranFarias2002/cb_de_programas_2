@@ -3,34 +3,28 @@ import os
 import glob
 import pypdf
 
-# Document Loaders y Splitters
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import CharacterTextSplitter
-
-# Embeddings y Vector Store
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_core.vectorstores import VectorStoreRetriever
-
-# Prompts y Modelos
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
-
-# Chains (IMPORTACIÓN SIMPLIFICADA)
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-
+# Configuración de página (Debe ir antes de cualquier comando de st)
 st.set_page_config(
     page_title="Chatea con tu PDF",
     page_icon="📄",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# Para instalar estas bibliotecas, usa pip:
-# pip install streamlit langchain langchain-huggingface langchain-community faiss langchain-google-genai
+# Importaciones de LangChain con rutas directas
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import CharacterTextSplitter
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_core.vectorstores import VectorStoreRetriever
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Estas son las que fallaban, las importamos desde sus paquetes específicos
+from langchain.chains.retrieval import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 
 st.title("Charla con tu PDF")
+
 
 # Obtiene la clave API de Google desde los secretos de Streamlit
 GOOGLE_API_KEY=st.secrets["GOOGLE_API_KEY"]
