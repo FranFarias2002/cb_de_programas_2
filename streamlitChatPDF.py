@@ -1,18 +1,24 @@
-# Importa las bibliotecas necesarias
-import streamlit as st  # Para crear la interfaz web
-from langchain_community.document_loaders import PyPDFLoader # Para cargar documentos PDF
-from langchain_text_splitters import CharacterTextSplitter # Para dividir el texto en trozos
-from langchain_huggingface import HuggingFaceEmbeddings # Para generar incrustaciones de texto usando modelos de Hugging Face
-# FAISS (Facebook AI Similarity Search) 
-from langchain_community.vectorstores import FAISS # Para crear y buscar en una base de datos vectorial
-from langchain_core.vectorstores import VectorStoreRetriever # Para recuperar información de la base de datos vectorial
-from langchain.chains import create_retrieval_chain # Para crear una cadena de recuperación
-from langchain.chains.combine_documents import create_stuff_documents_chain # Para combinar documentos en una sola respuesta
-from langchain_core.prompts import ChatPromptTemplate # Para crear plantillas de prompts
-from langchain_google_genai import ChatGoogleGenerativeAI # Para usar el modelo de lenguaje de Google Gemini
-import os # Para interactuar con el sistema operativo
-import glob # Para buscar archivos que coincidan con un patrón
-import pypdf # Es buena práctica tenerlo, aunque PyPDFLoader lo use internamente
+import streamlit as st
+import os
+import glob
+import pypdf
+
+# Document Loaders y Splitters
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import CharacterTextSplitter
+
+# Embeddings y Vector Store
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_core.vectorstores import VectorStoreRetriever
+
+# Prompts y Modelos
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Chains (Cadenas de recuperación)
+from langchain.chains.retrieval import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 
 st.set_page_config(
     page_title="Chatea con tu PDF",
