@@ -1,7 +1,7 @@
 # Importa las bibliotecas necesarias
 import streamlit as st  # Para crear la interfaz web
 from langchain_community.document_loaders import PyPDFLoader # Para cargar documentos PDF
-from langchain.text_splitter import CharacterTextSplitter # Para dividir el texto en trozos
+from langchain_text_splitters import CharacterTextSplitter # Para dividir el texto en trozos
 from langchain_huggingface import HuggingFaceEmbeddings # Para generar incrustaciones de texto usando modelos de Hugging Face
 # FAISS (Facebook AI Similarity Search) 
 from langchain_community.vectorstores import FAISS # Para crear y buscar en una base de datos vectorial
