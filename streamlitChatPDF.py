@@ -3,14 +3,10 @@ import os
 import glob
 import pypdf
 
-# Configuración de página (Debe ir antes de cualquier comando de st)
-st.set_page_config(
-    page_title="Chatea con tu PDF",
-    page_icon="📄",
-    layout="wide"
-)
+# Configuración de página
+st.set_page_config(page_title="Chatea con tu PDF", page_icon="📄")
 
-# Importaciones de LangChain con rutas directas
+# Importaciones Directas (Sin pasar por 'langchain.chains')
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -19,9 +15,9 @@ from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-# Estas son las que fallaban, las importamos desde sus paquetes específicos
-from langchain.chains.retrieval import create_retrieval_chain
+# ESTA ES LA SOLUCIÓN AL ERROR: Importar desde los paquetes independientes
 from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain.chains.retrieval import create_retrieval_chain
 
 st.title("Charla con tu PDF")
 
