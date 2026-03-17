@@ -1,136 +1,149 @@
 import streamlit as st
 import os
 import glob
-import pypdf
-
-# Configuración de página
-st.set_page_config(page_title="Chatea con tu PDF", page_icon="📄")
-
-# Importaciones Directas (Sin pasar por 'langchain.chains')
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import CharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
 
-# ESTA ES LA SOLUCIÓN AL ERROR: Importar desde los paquetes independientes
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains.retrieval import create_retrieval_chain
-
+# Configuración de página
+st.set_page_config(page_title="Chatea con tu PDF", page_icon="📄")
 st.title("Charla con tu PDF")
 
+# Clave API desde secrets
+GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 
-# Obtiene la clave API de Google desde los secretos de Streamlit
-GOOGLE_API_KEY=st.secrets["GOOGLE_API_KEY"]
-# Inicializa el modelo de lenguaje grande (LLM) de Google Gemini
-llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-pro", # Especifica el modelo a usar
-    temperature=0, # Controla la aleatoriedad de la salida (0 = determinista)
-    max_tokens=None, # Sin límite en el número de tokens generados
-    timeout=None, # Sin límite de tiempo
-    max_retries=2, # Número máximo de reintentos en caso de error
-    api_key=GOOGLE_API_KEY # La clave API
-)
+# Cache para el modelo de lenguaje (LLM)
+@st.cache_resource
+def load_llm():
+    return ChatGoogleGenerativeAI(
+        model="gemini-1.5-pro",
+        temperature=0,
+        max_tokens=None,
+        timeout=None,
+        max_retries=2,
+        api_key=GOOGLE_API_KEY
+    )
 
-# Define una función para generar una base de datos vectorial
-def generarBDVectorial(archivoPDF):
-    # Crea la ruta para el índice FAISS
-    rutaIndice=archivoPDF.replace(".pdf","")
-    # Inicializa las incrustaciones de Hugging Face
-    embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2" # Especifica el modelo de incrustaciones a usar
-            )
-    with st.spinner("Generando índices..."):
-        # Carga el índice FAISS si existe
-        if os.path.exists(rutaIndice):
-            vectorstore =  FAISS.load_local(rutaIndice, embeddings, allow_dangerous_deserialization=True)
-        # Si no existe, crea uno nuevo
-        else:        
-            loader = PyPDFLoader(file_path=archivoPDF) # Carga el PDF
-            documents = loader.load() # Lee el documento
+llm = load_llm()
+
+# Cache para los embeddings
+@st.cache_resource
+def load_embeddings():
+    return HuggingFaceEmbeddings(
+        model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    )
+
+embeddings = load_embeddings()
+
+# Función para obtener (o crear) el vectorstore correspondiente a un PDF
+@st.cache_resource
+def get_vectorstore(pdf_path):
+    # Ruta de la carpeta donde se guarda el índice (sin extensión)
+    index_path = os.path.splitext(pdf_path)[0]
+    
+    if os.path.exists(index_path):
+        # Cargar índice existente
+        vectorstore = FAISS.load_local(index_path, embeddings, allow_dangerous_deserialization=True)
+    else:
+        # Crear nuevo índice a partir del PDF
+        with st.spinner("Procesando PDF y generando índices..."):
+            loader = PyPDFLoader(file_path=pdf_path)
+            documents = loader.load()
             text_splitter = CharacterTextSplitter(
-                chunk_size=1000, chunk_overlap=30, separator="\n" # Configura el divisor de texto
+                chunk_size=1000, chunk_overlap=30, separator="\n"
             )
-            docs = text_splitter.split_documents(documents=documents) # Divide el documento en trozos
-            
-            vectorstore = FAISS.from_documents(docs, embeddings) # Crea el índice FAISS
-            vectorstore.save_local(rutaIndice) # Guarda el índice localmente
-    retriever = VectorStoreRetriever(vectorstore=vectorstore) # Crea un objeto retriever para acceder al índice
+            docs = text_splitter.split_documents(documents)
+            vectorstore = FAISS.from_documents(docs, embeddings)
+            vectorstore.save_local(index_path)
+    return vectorstore
 
-    return retriever # Devuelve el retriever
+# Listar archivos PDF en el directorio raíz
+pdf_files = glob.glob("*.pdf")
+if not pdf_files:
+    st.sidebar.warning("No se encontraron archivos PDF en el directorio.")
+    st.stop()
 
-# Define una función para generar una consulta
-def generarConsulta(query,llm,retriever):
-    # Define el prompt del sistema
-    system_prompt = (
-        "Use el contexto dado para responder la pregunta"
-        "Si no sabe la respuesta, digamos que no lo sabe"        
-        "Use tres oraciones como máximo y mantenga la respuesta concisa"
-        "Contexto: {context}"
-    )
-    # Crea una plantilla de prompt
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", system_prompt),
-            ("human", "{input}"),
-        ]
-    )
-    # Crea una cadena para combinar documentos
-    question_answer_chain = create_stuff_documents_chain(llm, prompt)
-    # Crea una cadena de recuperación
-    chain = create_retrieval_chain(retriever, question_answer_chain)
+# Selector de archivo en la barra lateral
+selected_pdf = st.sidebar.selectbox("Selecciona un archivo PDF", pdf_files)
 
-    return chain.invoke({"input": query}) # Devuelve la respuesta a la consulta
+# Reiniciar el chat si cambia el archivo seleccionado
+if "last_pdf" not in st.session_state:
+    st.session_state.last_pdf = selected_pdf
+if st.session_state.last_pdf != selected_pdf:
+    st.session_state.messages = []
+    st.session_state.last_pdf = selected_pdf
+    st.rerun()
 
-# Inicializa el historial de chat en la sesión de Streamlit
+# Obtener el vectorstore (cacheado) y el retriever
+vectorstore = get_vectorstore(selected_pdf)
+retriever = vectorstore.as_retriever()
+
+# Inicializar historial de mensajes
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Inicializa el nombre del archivo en la sesión de Streamlit
-if "archivo" not in st.session_state:
-    st.session_state.archivo =""
+# Mostrar mensajes previos
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-# Muestra el historial de chat
-with st.container():
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+# Función para generar respuesta usando LCEL
+def generar_respuesta(query):
+    # Plantilla del prompt
+    system_prompt = (
+        "Usa el siguiente contexto para responder la pregunta. "
+        "Si no sabes la respuesta, simplemente di que no lo sabes. "
+        "Usa tres oraciones como máximo y mantén la respuesta concisa.\n\n"
+        "Contexto: {context}"
+    )
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        ("human", "{input}")
+    ])
 
-# Obtiene la lista de archivos PDF
-archivos =glob.glob("*.pdf")
-# Muestra un selector de archivos en la barra lateral
-parArchivo = st.sidebar.selectbox('Archivo',options=archivos,index=0)
-# Reinicia la aplicación si se selecciona un archivo diferente
-if st.session_state.archivo!=parArchivo:
-    st.session_state.archivo=parArchivo
-    st.session_state.messages = []
-    st.rerun()
-    
-# Genera la base de datos vectorial
-retriever = generarBDVectorial(parArchivo)
-# Muestra la entrada de chat
-prompt=st.chat_input("Qué quieres saber?")
+    # Función auxiliar para unir documentos
+    def format_docs(docs):
+        return "\n\n".join(doc.page_content for doc in docs)
 
-# Procesa la entrada del usuario
-if prompt:
-    # Muestra el mensaje del usuario
-    st.chat_message("user").markdown(prompt)
-    # Guarda el mensaje del usuario en el historial
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    try:        
-        # Genera la respuesta
-        chat_completion =generarConsulta(prompt,llm,retriever)                
-        # Muestra la respuesta del asistente
-        with st.chat_message("assistant"):            
-            st.write(chat_completion["answer"])
-            full_response=chat_completion["answer"]
-            # Muestra el contexto usado para generar la respuesta
-            with st.expander("Contexto"):
-                for contexto in chat_completion["context"]:
-                    st.write(contexto)
-        # Guarda la respuesta del asistente en el historial
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
-    except Exception as e: # Maneja las excepciones
-        st.error(e)
+    # Cadena RAG:
+    # 1. Obtiene contexto del retriever y lo formatea, y pasa la pregunta sin cambios.
+    # 2. Aplica el prompt.
+    # 3. Llama al LLM.
+    # 4. Parsea la salida a string.
+    rag_chain = (
+        {"context": retriever | format_docs, "input": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+
+    # Recuperamos los documentos por separado para mostrarlos en el expander
+    retrieved_docs = retriever.invoke(query)
+    answer = rag_chain.invoke(query)
+    return answer, retrieved_docs
+
+# Entrada del usuario
+user_input = st.chat_input("¿Qué quieres saber?")
+if user_input:
+    # Mostrar mensaje del usuario
+    st.chat_message("user").markdown(user_input)
+    st.session_state.messages.append({"role": "user", "content": user_input})
+
+    # Generar respuesta
+    with st.spinner("Pensando..."):
+        try:
+            answer, docs = generar_respuesta(user_input)
+            with st.chat_message("assistant"):
+                st.write(answer)
+                # Mostrar contexto usado (documentos recuperados)
+                with st.expander("Contexto utilizado"):
+                    for doc in docs:
+                        st.write(doc.page_content)
+            st.session_state.messages.append({"role": "assistant", "content": answer})
+        except Exception as e:
+            st.error(f"Ocurrió un error: {e}")
