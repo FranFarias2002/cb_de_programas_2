@@ -16,8 +16,8 @@ from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-# Chains (Cadenas de recuperación)
-from langchain.chains.retrieval import create_retrieval_chain
+# Chains (IMPORTACIÓN SIMPLIFICADA)
+from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 
 st.set_page_config(
