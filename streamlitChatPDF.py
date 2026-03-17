@@ -1,5 +1,3 @@
-# Ruta para descargar el PDF usado en el ejemplo
-# https://www.editorial-sciela.org/index.php/sciela/article/view/16
 # Importa las bibliotecas necesarias
 import streamlit as st  # Para crear la interfaz web
 from langchain.document_loaders import PyPDFLoader # Para cargar documentos PDF
