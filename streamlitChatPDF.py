@@ -1,6 +1,6 @@
 # Importa las bibliotecas necesarias
 import streamlit as st  # Para crear la interfaz web
-from langchain_document_loaders import PyPDFLoader # Para cargar documentos PDF
+from langchain_community.document_loaders import PyPDFLoader # Para cargar documentos PDF
 from langchain.text_splitter import CharacterTextSplitter # Para dividir el texto en trozos
 from langchain_huggingface import HuggingFaceEmbeddings # Para generar incrustaciones de texto usando modelos de Hugging Face
 # FAISS (Facebook AI Similarity Search) 
@@ -12,6 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate # Para crear plantillas de
 from langchain_google_genai import ChatGoogleGenerativeAI # Para usar el modelo de lenguaje de Google Gemini
 import os # Para interactuar con el sistema operativo
 import glob # Para buscar archivos que coincidan con un patrón
+import pypdf # Es buena práctica tenerlo, aunque PyPDFLoader lo use internamente
 
 st.set_page_config(
     page_title="Chatea con tu PDF",

@@ -1,8 +1,9 @@
 streamlit
 langchain
-langchain-huggingface
 langchain-community
-faiss-cpu
+langchain-huggingface
+langchain-core
 langchain-google-genai
+faiss-cpu
 pypdf
 sentence-transformers
